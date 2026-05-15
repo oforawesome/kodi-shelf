@@ -1,0 +1,138 @@
+"""
+kodi_client.py — Kodi JSON-RPC + TMDB metadata helpers
+"""
+import requests
+import streamlit as st
+import json
+import time
+from typing import Optional
+
+
+# ── Kodi JSON-RPC ─────────────────────────────────────────────────────────────
+
+def _kodi_request(method: str, params: dict) -> Optional[dict]:
+    cfg = st.session_state.get("config", {})
+    host = cfg.get("kodi_host", "192.168.1.100")
+    port = cfg.get("kodi_port", 8080)
+    user = cfg.get("kodi_user", "")
+    passwd = cfg.get("kodi_pass", "")
+
+    url = f"http://{host}:{port}/jsonrpc"
+    payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
+
+    try:
+        auth = (user, passwd) if user else None
+        resp = requests.post(url, json=payload, auth=auth, timeout=6)
+        resp.raise_for_status()
+        data = resp.json()
+        if "error" in data:
+            st.error(f"Kodi error: {data['error']['message']}")
+            return None
+        return data.get("result")
+    except requests.exceptions.ConnectionError:
+        st.error(f"❌ Cannot reach Kodi at {host}:{port}. Check your Settings.")
+        return None
+    except requests.exceptions.Timeout:
+        st.error(f"⏱ Kodi timed out at {host}:{port}.")
+        return None
+    except Exception as e:
+        st.error(f"Kodi request failed: {e}")
+        return None
+
+
+@st.cache_data(ttl=300)
+def get_kodi_movies() -> list[dict]:
+    result = _kodi_request("VideoLibrary.GetMovies", {
+        "properties": [
+            "title", "year", "genre", "rating", "runtime",
+            "plot", "thumbnail", "playcount", "dateadded", "file",
+            "director", "cast"
+        ],
+        "sort": {"order": "ascending", "method": "title"}
+    })
+    if result:
+        return result.get("movies", [])
+    return []
+
+
+@st.cache_data(ttl=300)
+def get_kodi_tvshows() -> list[dict]:
+    result = _kodi_request("VideoLibrary.GetTVShows", {
+        "properties": [
+            "title", "year", "genre", "rating", "plot",
+            "thumbnail", "playcount", "dateadded", "episode",
+            "watchedepisodes", "cast"
+        ],
+        "sort": {"order": "ascending", "method": "title"}
+    })
+    if result:
+        return result.get("tvshows", [])
+    return []
+
+
+def ping_kodi() -> bool:
+    result = _kodi_request("JSONRPC.Ping", {})
+    return result == "pong"
+
+
+# ── TMDB ──────────────────────────────────────────────────────────────────────
+
+TMDB_BASE = "https://api.themoviedb.org/3"
+TMDB_IMG  = "https://image.tmdb.org/t/p/w300"
+
+
+def _tmdb_get(endpoint: str, params: dict) -> Optional[dict]:
+    cfg = st.session_state.get("config", {})
+    api_key = cfg.get("tmdb_key", "")
+    if not api_key:
+        return None
+    params["api_key"] = api_key
+    try:
+        resp = requests.get(f"{TMDB_BASE}/{endpoint}", params=params, timeout=5)
+        if resp.status_code == 401:
+            return None  # bad key — handled at call site
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def tmdb_search_movie(title: str, year: Optional[int] = None) -> Optional[dict]:
+    params = {"query": title, "include_adult": False}
+    if year:
+        params["year"] = year
+    data = _tmdb_get("search/movie", params)
+    if data and data.get("results"):
+        return data["results"][0]
+    return None
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def tmdb_search_tv(title: str, year: Optional[int] = None) -> Optional[dict]:
+    params = {"query": title}
+    if year:
+        params["first_air_date_year"] = year
+    data = _tmdb_get("search/tv", params)
+    if data and data.get("results"):
+        return data["results"][0]
+    return None
+
+
+def poster_url(path: Optional[str]) -> Optional[str]:
+    if path:
+        return f"{TMDB_IMG}{path}"
+    return None
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def tmdb_search_any(title: str, year: Optional[int] = None) -> Optional[dict]:
+    """Try movie first, then TV."""
+    result = tmdb_search_movie(title, year)
+    if result:
+        result["_media_type"] = "movie"
+        return result
+    result = tmdb_search_tv(title, year)
+    if result:
+        result["_media_type"] = "tv"
+    return result
