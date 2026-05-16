@@ -107,8 +107,41 @@ def mark_found(idx: int):
 
 def boot_session():
     if "config" not in st.session_state:
-        st.session_state["config"] = load_config()
+        cfg = _load_env_defaults()
+        cfg.update(load_config())
+        st.session_state["config"] = cfg
     if "watchlist" not in st.session_state:
         st.session_state["watchlist"] = load_watchlist()
     if "findlist" not in st.session_state:
         st.session_state["findlist"] = load_findlist()
+
+
+# ── .env loader ───────────────────────────────────────────────────────────────
+
+def _load_env_defaults() -> dict:
+    """Load config defaults from .env file if present."""
+    env_path = Path(__file__).parent / ".env"
+    defaults = {}
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            mapping = {
+                "KODI_HOST": "kodi_host",
+                "KODI_PORT": "kodi_port",
+                "KODI_USER": "kodi_user",
+                "KODI_PASS": "kodi_pass",
+                "TMDB_KEY":  "tmdb_key",
+            }
+            cfg_key = mapping.get(key.strip())
+            if cfg_key:
+                val = value.strip()
+                if cfg_key == "kodi_port":
+                    try:
+                        val = int(val)
+                    except ValueError:
+                        pass
+                defaults[cfg_key] = val
+    return defaults

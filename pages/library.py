@@ -1,6 +1,21 @@
 import streamlit as st
 from store import boot_session, add_to_watchlist, load_watchlist
-from kodi_client import get_kodi_movies, get_kodi_tvshows
+from kodi_client import get_kodi_movies, get_kodi_tvshows, tmdb_search_movie, tmdb_search_tv, poster_url
+
+PLACEHOLDER = "https://via.placeholder.com/45x68/1e1e24/7a7a8c?text=?"
+
+
+def get_poster(title: str, year, media_type: str) -> str:
+    cfg = st.session_state.get("config", {})
+    if not cfg.get("tmdb_key"):
+        return PLACEHOLDER
+    if media_type == "movie":
+        tmdb = tmdb_search_movie(title, year or None)
+    else:
+        tmdb = tmdb_search_tv(title, year or None)
+    if tmdb and tmdb.get("poster_path"):
+        return poster_url(tmdb["poster_path"])
+    return PLACEHOLDER
 
 
 def media_row(item: dict, media_type: str, in_watchlist: bool):
@@ -12,8 +27,12 @@ def media_row(item: dict, media_type: str, in_watchlist: bool):
     playcount = item.get("playcount", 0)
     watched = playcount > 0
 
-    col_title, col_year, col_genre, col_rating, col_watched, col_btn = st.columns([4, 1, 2, 1, 1, 1])
+    poster = get_poster(title, year, media_type)
 
+    col_img, col_title, col_year, col_genre, col_rating, col_watched, col_btn = st.columns([1, 4, 1, 2, 1, 1, 1])
+
+    with col_img:
+        st.image(poster, width=45)
     with col_title:
         st.markdown(f"**{title}**")
     with col_year:
@@ -29,7 +48,7 @@ def media_row(item: dict, media_type: str, in_watchlist: bool):
     with col_btn:
         wl_key = f"wl_{media_type}_{kodi_id}"
         if in_watchlist:
-            st.markdown("<span style='color:#4caf82;font-size:12px;'>+ Queue</span>", unsafe_allow_html=True)
+            st.markdown("<span style='color:#4caf82;font-size:12px;'>✓ Queue</span>", unsafe_allow_html=True)
         else:
             if st.button("+ Queue", key=wl_key, use_container_width=True):
                 entry = {
@@ -37,7 +56,7 @@ def media_row(item: dict, media_type: str, in_watchlist: bool):
                     "title": title,
                     "year": year,
                     "media_type": media_type,
-                    "poster": None,
+                    "poster": poster,
                     "genres": genres,
                     "plot": (item.get("plot") or "")[:200],
                     "rating": rating,
@@ -53,7 +72,7 @@ def show():
 
     cfg = st.session_state.get("config", {})
     if not cfg.get("kodi_host"):
-        st.warning("⚙️ Configure your Kodi connection in **Settings** first.")
+        st.warning("Configure your Kodi connection in Settings first.")
         return
 
     st.markdown("# LIBRARY")
@@ -93,13 +112,9 @@ def show():
             elif sort_by == "Rating":
                 movies = sorted(movies, key=lambda x: x.get("rating") or 0, reverse=True)
 
-            st.markdown(
-                f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:8px;'>{len(movies)} titles</div>",
-                unsafe_allow_html=True
-            )
+            st.markdown(f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:8px;'>{len(movies)} titles</div>", unsafe_allow_html=True)
 
-            # Header row
-            h1, h2, h3, h4, h5, h6 = st.columns([4, 1, 2, 1, 1, 1])
+            h0, h1, h2, h3, h4, h5, h6 = st.columns([1, 4, 1, 2, 1, 1, 1])
             h1.markdown("<span style='color:#5a5a6c;font-size:12px;'>TITLE</span>", unsafe_allow_html=True)
             h2.markdown("<span style='color:#5a5a6c;font-size:12px;'>YEAR</span>", unsafe_allow_html=True)
             h3.markdown("<span style='color:#5a5a6c;font-size:12px;'>GENRE</span>", unsafe_allow_html=True)
@@ -141,13 +156,9 @@ def show():
             elif sort_by2 == "Rating":
                 shows = sorted(shows, key=lambda x: x.get("rating") or 0, reverse=True)
 
-            st.markdown(
-                f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:8px;'>{len(shows)} titles</div>",
-                unsafe_allow_html=True
-            )
+            st.markdown(f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:8px;'>{len(shows)} titles</div>", unsafe_allow_html=True)
 
-            # Header row
-            h1, h2, h3, h4, h5, h6 = st.columns([4, 1, 2, 1, 1, 1])
+            h0, h1, h2, h3, h4, h5, h6 = st.columns([1, 4, 1, 2, 1, 1, 1])
             h1.markdown("<span style='color:#5a5a6c;font-size:12px;'>TITLE</span>", unsafe_allow_html=True)
             h2.markdown("<span style='color:#5a5a6c;font-size:12px;'>YEAR</span>", unsafe_allow_html=True)
             h3.markdown("<span style='color:#5a5a6c;font-size:12px;'>GENRE</span>", unsafe_allow_html=True)
@@ -157,11 +168,4 @@ def show():
 
             for show_item in shows:
                 kodi_id = f"tv_{show_item.get('tvshowid')}"
-                # Add episode count to genre field by injecting into a copy
-                eps = show_item.get("episode", 0)
-                watched_eps = show_item.get("watchedepisodes", 0)
-                show_copy = dict(show_item)
-                if eps:
-                    # Overwrite playcount display with episode progress
-                    show_copy["_ep_label"] = f"{watched_eps}/{eps} eps"
-                media_row(show_copy, "tv", kodi_id in wl_keys)
+                media_row(show_item, "tv", kodi_id in wl_keys)
