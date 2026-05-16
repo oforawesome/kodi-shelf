@@ -5,7 +5,7 @@ import requests
 import streamlit as st
 import json
 import time
-from typing import Optional
+from typing import Optional, Union
 
 
 # ── Kodi JSON-RPC ─────────────────────────────────────────────────────────────

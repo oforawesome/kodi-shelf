@@ -14,7 +14,7 @@ FINDLIST_FILE  = DATA_DIR / "findlist.json"
 CONFIG_FILE    = DATA_DIR / "config.json"
 
 
-def _read(path: Path) -> list | dict:
+def _read(path: Path):
     if path.exists():
         try:
             return json.loads(path.read_text())

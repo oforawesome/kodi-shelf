@@ -1,12 +1,41 @@
 import streamlit as st
+import urllib.parse
 from store import boot_session, add_to_watchlist, load_watchlist
 from kodi_client import get_kodi_movies, get_kodi_tvshows, tmdb_search_movie, tmdb_search_tv, poster_url
 
 PLACEHOLDER = "https://via.placeholder.com/150x225/1e1e24/7a7a8c?text=No+Poster"
 
 
+def kodi_image_url(thumb: str, cfg: dict) -> str:
+    if not thumb or not thumb.startswith("image://"):
+        return ""
+    encoded = urllib.parse.quote(thumb, safe="")
+    host = cfg.get("kodi_host", "192.168.0.219")
+    port = cfg.get("kodi_port", 8082)
+    user = cfg.get("kodi_user", "")
+    passwd = cfg.get("kodi_pass", "")
+    auth = f"{user}:{passwd}@" if user else ""
+    return f"http://{auth}{host}:{port}/image/{encoded}"
+
+
+def get_poster(item: dict, media_type: str, cfg: dict) -> str:
+    kodi_thumb = item.get("thumbnail", "")
+    if kodi_thumb and kodi_thumb.startswith("image://"):
+        return kodi_image_url(kodi_thumb, cfg)
+    if cfg.get("tmdb_key"):
+        title = item.get("title", "")
+        year = item.get("year") or None
+        tmdb = None
+        if media_type == "movie":
+            tmdb = tmdb_search_movie(title, year)
+        else:
+            tmdb = tmdb_search_tv(title, year)
+        if tmdb and tmdb.get("poster_path"):
+            return poster_url(tmdb["poster_path"])
+    return PLACEHOLDER
+
+
 def media_card(item: dict, media_type: str, in_watchlist: bool):
-    """Render a single movie/show card."""
     kodi_id = item.get("movieid") or item.get("tvshowid")
     title = item.get("title", "Unknown")
     year = item.get("year", "")
@@ -15,20 +44,9 @@ def media_card(item: dict, media_type: str, in_watchlist: bool):
     genres = ", ".join(item.get("genre", [])[:2])
     playcount = item.get("playcount", 0)
     watched = playcount > 0
-
-    # Try TMDB for poster
-    tmdb = None
-    tmdb_poster = None
     cfg = st.session_state.get("config", {})
-    if cfg.get("tmdb_key"):
-        if media_type == "movie":
-            tmdb = tmdb_search_movie(title, year or None)
-        else:
-            tmdb = tmdb_search_tv(title, year or None)
-        if tmdb:
-            tmdb_poster = poster_url(tmdb.get("poster_path"))
 
-    poster = tmdb_poster or PLACEHOLDER
+    poster = get_poster(item, media_type, cfg)
 
     watched_badge = (
         "<span style='background:#4caf82;color:#0d0d0f;font-size:10px;"
@@ -77,7 +95,7 @@ def media_card(item: dict, media_type: str, in_watchlist: bool):
                 "title": title,
                 "year": year,
                 "media_type": media_type,
-                "poster": tmdb_poster,
+                "poster": poster,
                 "genres": genres,
                 "plot": plot[:200] if plot else "",
                 "rating": rating,
@@ -95,14 +113,13 @@ def show():
 
     cfg = st.session_state.get("config", {})
     if not cfg.get("kodi_host"):
-        st.warning("⚙️ Configure your Kodi connection in **Settings** first.")
+        st.warning("Configure your Kodi connection in Settings first.")
         return
 
     st.markdown("# LIBRARY")
 
     tab_movies, tab_tv = st.tabs(["🎬  Movies", "📺  TV Shows"])
 
-    # Load watchlist keys for badge display
     wl = load_watchlist()
     wl_keys = {i.get("kodi_id") for i in wl}
 
@@ -131,8 +148,7 @@ def show():
                 movies = [m for m in movies if m.get("playcount", 0) > 0]
 
             st.markdown(
-                f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:12px;'>"
-                f"{len(movies)} titles</div>",
+                f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:12px;'>{len(movies)} titles</div>",
                 unsafe_allow_html=True
             )
 
@@ -167,8 +183,7 @@ def show():
                 shows = [s for s in shows if s.get("playcount", 0) > 0]
 
             st.markdown(
-                f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:12px;'>"
-                f"{len(shows)} shows</div>",
+                f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:12px;'>{len(shows)} shows</div>",
                 unsafe_allow_html=True
             )
 
@@ -176,7 +191,6 @@ def show():
             for i, show_item in enumerate(shows):
                 kodi_id = f"tv_{show_item.get('tvshowid')}"
                 with cols[i % 5]:
-                    # Add episode progress info to plot
                     eps = show_item.get("episode", 0)
                     watched_eps = show_item.get("watchedepisodes", 0)
                     if eps:
