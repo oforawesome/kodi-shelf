@@ -1,64 +1,54 @@
 import streamlit as st
 from store import boot_session, add_to_watchlist, load_watchlist
-from kodi_client import get_kodi_movies, get_kodi_tvshows, tmdb_search_movie, tmdb_search_tv, poster_url
-
-PLACEHOLDER = "https://via.placeholder.com/45x68/1e1e24/7a7a8c?text=?"
+from kodi_client import get_kodi_movies, get_kodi_tvshows
 
 
-def get_poster(title: str, year, media_type: str) -> str:
-    cfg = st.session_state.get("config", {})
-    if not cfg.get("tmdb_key"):
-        return PLACEHOLDER
-    if media_type == "movie":
-        tmdb = tmdb_search_movie(title, year or None)
-    else:
-        tmdb = tmdb_search_tv(title, year or None)
-    if tmdb and tmdb.get("poster_path"):
-        return poster_url(tmdb["poster_path"])
-    return PLACEHOLDER
+def sort_title(title: str) -> str:
+    """Strip leading articles for sorting."""
+    low = title.lower()
+    for article in ("the ", "a ", "an "):
+        if low.startswith(article):
+            return title[len(article):]
+    return title
 
 
 def media_row(item: dict, media_type: str, in_watchlist: bool):
     kodi_id = item.get("movieid") or item.get("tvshowid")
     title = item.get("title", "Unknown")
     year = item.get("year", "")
-    rating = item.get("rating", 0)
-    genres = ", ".join(item.get("genre", [])[:3])
     playcount = item.get("playcount", 0)
     watched = playcount > 0
 
-    poster = get_poster(title, year, media_type)
+    col_title, col_watched, col_btn = st.columns([6, 1, 1])
 
-    col_img, col_title, col_year, col_watched, col_btn = st.columns([1, 5, 1, 1, 1])
-
-    with col_img:
-        st.image(poster, width=45)
     with col_title:
-        st.markdown(f"**{title}**")
-    with col_year:
-        st.markdown(f"<span style='color:#7a7a8c;'>{year}</span>", unsafe_allow_html=True)
-    with col_watched:
-        if watched:
-            st.markdown("<span style='color:#4caf82;font-size:12px;'>✓</span>", unsafe_allow_html=True)
+        year_str = f" · {year}" if year else ""
+        watched_str = " ✓" if watched else ""
+        st.markdown(
+            f"**{title}**<span style='color:#7a7a8c;font-size:13px;'>{year_str}</span>"
+            f"<span style='color:#4caf82;font-size:12px;'>{watched_str}</span>",
+            unsafe_allow_html=True
+        )
+
     with col_btn:
         wl_key = f"wl_{media_type}_{kodi_id}"
         if in_watchlist:
-            st.markdown("<span style='color:#4caf82;font-size:12px;'>✓ Queue</span>", unsafe_allow_html=True)
+            st.markdown("<span style='color:#4caf82;font-size:12px;'>✓</span>", unsafe_allow_html=True)
         else:
-            if st.button("+ Queue", key=wl_key, use_container_width=True):
+            if st.button("＋", key=wl_key, use_container_width=True):
                 entry = {
                     "kodi_id": f"{media_type}_{kodi_id}",
                     "title": title,
                     "year": year,
                     "media_type": media_type,
-                    "poster": poster,
-                    "genres": genres,
+                    "poster": None,
+                    "genres": ", ".join(item.get("genre", [])[:3]),
                     "plot": (item.get("plot") or "")[:200],
-                    "rating": rating,
+                    "rating": item.get("rating", 0),
                 }
                 ok = add_to_watchlist(entry)
                 if ok:
-                    st.toast(f"Added '{title}' to watchlist")
+                    st.toast(f"Added '{title}'")
                     st.rerun()
 
 
@@ -102,19 +92,14 @@ def show():
                 movies = [m for m in movies if m.get("playcount", 0) == 0]
             elif watched_filter == "Watched":
                 movies = [m for m in movies if m.get("playcount", 0) > 0]
-            if sort_by == "Year (newest)":
+            if sort_by == "Title A–Z":
+                movies = sorted(movies, key=lambda x: sort_title(x.get("title", "")))
+            elif sort_by == "Year (newest)":
                 movies = sorted(movies, key=lambda x: x.get("year") or 0, reverse=True)
             elif sort_by == "Rating":
                 movies = sorted(movies, key=lambda x: x.get("rating") or 0, reverse=True)
 
-            st.markdown(f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:8px;'>{len(movies)} titles</div>", unsafe_allow_html=True)
-
-            h0, h1, h2, h3, h4 = st.columns([1, 5, 1, 1, 1])
-            h1.markdown("<span style='color:#5a5a6c;font-size:12px;'>TITLE</span>", unsafe_allow_html=True)
-            h2.markdown("<span style='color:#5a5a6c;font-size:12px;'>YEAR</span>", unsafe_allow_html=True)
-            
-            
-            h3.markdown("<span style='color:#5a5a6c;font-size:12px;'>SEEN</span>", unsafe_allow_html=True)
+            st.markdown(f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:4px;'>{len(movies)} titles</div>", unsafe_allow_html=True)
             st.divider()
 
             for movie in movies:
@@ -146,19 +131,14 @@ def show():
                 shows = [s for s in shows if s.get("playcount", 0) == 0]
             elif watched_filter2 == "Watched":
                 shows = [s for s in shows if s.get("playcount", 0) > 0]
-            if sort_by2 == "Year (newest)":
+            if sort_by2 == "Title A–Z":
+                shows = sorted(shows, key=lambda x: sort_title(x.get("title", "")))
+            elif sort_by2 == "Year (newest)":
                 shows = sorted(shows, key=lambda x: x.get("year") or 0, reverse=True)
             elif sort_by2 == "Rating":
                 shows = sorted(shows, key=lambda x: x.get("rating") or 0, reverse=True)
 
-            st.markdown(f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:8px;'>{len(shows)} titles</div>", unsafe_allow_html=True)
-
-            h0, h1, h2, h3, h4 = st.columns([1, 5, 1, 1, 1])
-            h1.markdown("<span style='color:#5a5a6c;font-size:12px;'>TITLE</span>", unsafe_allow_html=True)
-            h2.markdown("<span style='color:#5a5a6c;font-size:12px;'>YEAR</span>", unsafe_allow_html=True)
-            
-            
-            h3.markdown("<span style='color:#5a5a6c;font-size:12px;'>SEEN</span>", unsafe_allow_html=True)
+            st.markdown(f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:4px;'>{len(shows)} titles</div>", unsafe_allow_html=True)
             st.divider()
 
             for show_item in shows:
