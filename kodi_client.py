@@ -45,7 +45,7 @@ def get_kodi_movies() -> list[dict]:
     result = _kodi_request("VideoLibrary.GetMovies", {
         "properties": [
             "title", "year", "genre", "rating", "runtime",
-            "plot", "thumbnail", "playcount", "dateadded", "file",
+            "plot", "thumbnail", "art", "playcount", "dateadded", "file",
             "director", "cast"
         ],
         "sort": {"order": "ascending", "method": "title"}
@@ -60,7 +60,7 @@ def get_kodi_tvshows() -> list[dict]:
     result = _kodi_request("VideoLibrary.GetTVShows", {
         "properties": [
             "title", "year", "genre", "rating", "plot",
-            "thumbnail", "playcount", "dateadded", "episode",
+            "thumbnail", "art", "playcount", "dateadded", "episode",
             "watchedepisodes", "cast"
         ],
         "sort": {"order": "ascending", "method": "title"}
@@ -117,6 +117,25 @@ def tmdb_search_tv(title: str, year: Optional[int] = None) -> Optional[dict]:
     if data and data.get("results"):
         return data["results"][0]
     return None
+
+
+def extract_kodi_poster(item: dict) -> str:
+    """Extract a usable poster URL from Kodi art dict."""
+    import urllib.parse
+    art = item.get("art", {})
+    raw = art.get("poster") or art.get("fanart", "")
+    if not raw:
+        return ""
+    # Strip image:// wrapper and trailing slash
+    if raw.startswith("image://"):
+        raw = raw[8:]
+        if raw.endswith("/"):
+            raw = raw[:-1]
+    decoded = urllib.parse.unquote(raw)
+    # Only return if it's a web URL - local file paths won't work remotely
+    if decoded.startswith('http://') or decoded.startswith('https://'):
+        return decoded
+    return ""
 
 
 def poster_url(path: Optional[str]) -> Optional[str]:

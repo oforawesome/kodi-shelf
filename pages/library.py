@@ -1,6 +1,6 @@
 import streamlit as st
 from store import boot_session, add_to_watchlist, load_watchlist
-from kodi_client import get_kodi_movies, get_kodi_tvshows
+from kodi_client import get_kodi_movies, get_kodi_tvshows, extract_kodi_poster, tmdb_search_movie, tmdb_search_tv, poster_url
 
 
 def sort_title(title: str) -> str:
@@ -18,8 +18,21 @@ def media_row(item: dict, media_type: str, in_watchlist: bool):
     year = item.get("year", "")
     playcount = item.get("playcount", 0)
     watched = playcount > 0
+    poster = extract_kodi_poster(item)
+    # Fallback to TMDB if no HTTP poster in Kodi art
+    if not poster:
+        cfg = st.session_state.get("config", {})
+        if cfg.get("tmdb_key"):
+            tmdb = tmdb_search_movie(title, year or None) if media_type == "movie" else tmdb_search_tv(title, year or None)
+            if tmdb and tmdb.get("poster_path"):
+                poster = poster_url(tmdb["poster_path"]) or ""
 
-    col_title, col_watched, col_btn = st.columns([6, 1, 1])
+    if poster:
+        col_img, col_title, col_btn = st.columns([1, 7, 1])
+        with col_img:
+            st.image(poster, width=40)
+    else:
+        col_title, col_btn = st.columns([8, 1])
 
     with col_title:
         year_str = f" · {year}" if year else ""
