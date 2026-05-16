@@ -29,7 +29,7 @@ def media_row(item: dict, media_type: str, in_watchlist: bool):
 
     poster = get_poster(title, year, media_type)
 
-    col_img, col_title, col_year, col_genre, col_rating, col_watched, col_btn = st.columns([1, 4, 1, 2, 1, 1, 1])
+    col_img, col_title, col_year, col_watched, col_btn = st.columns([1, 5, 1, 1, 1])
 
     with col_img:
         st.image(poster, width=45)
@@ -37,14 +37,9 @@ def media_row(item: dict, media_type: str, in_watchlist: bool):
         st.markdown(f"**{title}**")
     with col_year:
         st.markdown(f"<span style='color:#7a7a8c;'>{year}</span>", unsafe_allow_html=True)
-    with col_genre:
-        st.markdown(f"<span style='color:#7a7a8c;font-size:13px;'>{genres}</span>", unsafe_allow_html=True)
-    with col_rating:
-        if rating:
-            st.markdown(f"<span style='color:#e8c547;'>★ {rating:.1f}</span>", unsafe_allow_html=True)
     with col_watched:
         if watched:
-            st.markdown("<span style='color:#4caf82;font-size:12px;'>✓ Watched</span>", unsafe_allow_html=True)
+            st.markdown("<span style='color:#4caf82;font-size:12px;'>✓</span>", unsafe_allow_html=True)
     with col_btn:
         wl_key = f"wl_{media_type}_{kodi_id}"
         if in_watchlist:
@@ -114,12 +109,12 @@ def show():
 
             st.markdown(f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:8px;'>{len(movies)} titles</div>", unsafe_allow_html=True)
 
-            h0, h1, h2, h3, h4, h5, h6 = st.columns([1, 4, 1, 2, 1, 1, 1])
+            h0, h1, h2, h3, h4 = st.columns([1, 5, 1, 1, 1])
             h1.markdown("<span style='color:#5a5a6c;font-size:12px;'>TITLE</span>", unsafe_allow_html=True)
             h2.markdown("<span style='color:#5a5a6c;font-size:12px;'>YEAR</span>", unsafe_allow_html=True)
-            h3.markdown("<span style='color:#5a5a6c;font-size:12px;'>GENRE</span>", unsafe_allow_html=True)
-            h4.markdown("<span style='color:#5a5a6c;font-size:12px;'>RATING</span>", unsafe_allow_html=True)
-            h5.markdown("<span style='color:#5a5a6c;font-size:12px;'>STATUS</span>", unsafe_allow_html=True)
+            
+            
+            h3.markdown("<span style='color:#5a5a6c;font-size:12px;'>SEEN</span>", unsafe_allow_html=True)
             st.divider()
 
             for movie in movies:
@@ -158,12 +153,12 @@ def show():
 
             st.markdown(f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:8px;'>{len(shows)} titles</div>", unsafe_allow_html=True)
 
-            h0, h1, h2, h3, h4, h5, h6 = st.columns([1, 4, 1, 2, 1, 1, 1])
+            h0, h1, h2, h3, h4 = st.columns([1, 5, 1, 1, 1])
             h1.markdown("<span style='color:#5a5a6c;font-size:12px;'>TITLE</span>", unsafe_allow_html=True)
             h2.markdown("<span style='color:#5a5a6c;font-size:12px;'>YEAR</span>", unsafe_allow_html=True)
-            h3.markdown("<span style='color:#5a5a6c;font-size:12px;'>GENRE</span>", unsafe_allow_html=True)
-            h4.markdown("<span style='color:#5a5a6c;font-size:12px;'>RATING</span>", unsafe_allow_html=True)
-            h5.markdown("<span style='color:#5a5a6c;font-size:12px;'>EPISODES</span>", unsafe_allow_html=True)
+            
+            
+            h3.markdown("<span style='color:#5a5a6c;font-size:12px;'>SEEN</span>", unsafe_allow_html=True)
             st.divider()
 
             for show_item in shows:
