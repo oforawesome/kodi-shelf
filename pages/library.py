@@ -1,111 +1,51 @@
 import streamlit as st
-import urllib.parse
 from store import boot_session, add_to_watchlist, load_watchlist
-from kodi_client import get_kodi_movies, get_kodi_tvshows, tmdb_search_movie, tmdb_search_tv, poster_url
-
-PLACEHOLDER = "https://via.placeholder.com/150x225/1e1e24/7a7a8c?text=No+Poster"
+from kodi_client import get_kodi_movies, get_kodi_tvshows
 
 
-def kodi_image_url(thumb: str, cfg: dict) -> str:
-    if not thumb or not thumb.startswith("image://"):
-        return ""
-    encoded = urllib.parse.quote(thumb, safe="")
-    host = cfg.get("kodi_host", "192.168.0.219")
-    port = cfg.get("kodi_port", 8082)
-    user = cfg.get("kodi_user", "")
-    passwd = cfg.get("kodi_pass", "")
-    auth = f"{user}:{passwd}@" if user else ""
-    return f"http://{auth}{host}:{port}/image/{encoded}"
-
-
-def get_poster(item: dict, media_type: str, cfg: dict) -> str:
-    kodi_thumb = item.get("thumbnail", "")
-    if kodi_thumb and kodi_thumb.startswith("image://"):
-        return kodi_image_url(kodi_thumb, cfg)
-    if cfg.get("tmdb_key"):
-        title = item.get("title", "")
-        year = item.get("year") or None
-        tmdb = None
-        if media_type == "movie":
-            tmdb = tmdb_search_movie(title, year)
-        else:
-            tmdb = tmdb_search_tv(title, year)
-        if tmdb and tmdb.get("poster_path"):
-            return poster_url(tmdb["poster_path"])
-    return PLACEHOLDER
-
-
-def media_card(item: dict, media_type: str, in_watchlist: bool):
+def media_row(item: dict, media_type: str, in_watchlist: bool):
     kodi_id = item.get("movieid") or item.get("tvshowid")
     title = item.get("title", "Unknown")
     year = item.get("year", "")
     rating = item.get("rating", 0)
-    plot = item.get("plot", "")
-    genres = ", ".join(item.get("genre", [])[:2])
+    genres = ", ".join(item.get("genre", [])[:3])
     playcount = item.get("playcount", 0)
     watched = playcount > 0
-    cfg = st.session_state.get("config", {})
 
-    poster = get_poster(item, media_type, cfg)
+    col_title, col_year, col_genre, col_rating, col_watched, col_btn = st.columns([4, 1, 2, 1, 1, 1])
 
-    watched_badge = (
-        "<span style='background:#4caf82;color:#0d0d0f;font-size:10px;"
-        "padding:2px 6px;border-radius:10px;font-weight:600;'>WATCHED</span>"
-        if watched else ""
-    )
-    type_badge = (
-        f"<span style='background:{'#e8c547' if media_type=='movie' else '#e87d47'};"
-        f"color:#0d0d0f;font-size:10px;padding:2px 6px;border-radius:10px;"
-        f"font-weight:600;'>{'MOVIE' if media_type=='movie' else 'TV'}</span>"
-    )
-
-    st.markdown(f"""
-    <div style='background:#16161a;border:1px solid #2a2a35;border-radius:10px;
-                padding:0;overflow:hidden;height:100%;display:flex;flex-direction:column;'>
-        <div style='position:relative;'>
-            <img src='{poster}' style='width:100%;aspect-ratio:2/3;object-fit:cover;display:block;'
-                 onerror="this.src='{PLACEHOLDER}'" />
-            <div style='position:absolute;top:8px;left:8px;display:flex;gap:4px;flex-wrap:wrap;'>
-                {type_badge} {watched_badge}
-            </div>
-        </div>
-        <div style='padding:10px;flex:1;display:flex;flex-direction:column;gap:4px;'>
-            <div style='font-family:Bebas Neue,sans-serif;font-size:16px;
-                        line-height:1.2;color:#e8e8f0;'>{title}</div>
-            <div style='font-size:12px;color:#7a7a8c;'>{year} · {genres}</div>
-            {"<div style='font-size:12px;color:#e8c547;'>★ " + f"{rating:.1f}" + "</div>" if rating else ""}
-            <div style='font-size:11px;color:#5a5a6c;margin-top:4px;
-                        overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;
-                        -webkit-box-orient:vertical;'>{plot}</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    wl_key = f"wl_{media_type}_{kodi_id}"
-    if in_watchlist:
-        st.markdown(
-            "<div style='text-align:center;font-size:12px;color:#4caf82;"
-            "padding:4px 0;'>✓ In watchlist</div>",
-            unsafe_allow_html=True
-        )
-    else:
-        if st.button("+ Watchlist", key=wl_key, use_container_width=True):
-            entry = {
-                "kodi_id": f"{media_type}_{kodi_id}",
-                "title": title,
-                "year": year,
-                "media_type": media_type,
-                "poster": poster,
-                "genres": genres,
-                "plot": plot[:200] if plot else "",
-                "rating": rating,
-            }
-            ok = add_to_watchlist(entry)
-            if ok:
-                st.success(f"Added '{title}'")
-                st.rerun()
-            else:
-                st.info("Already in watchlist")
+    with col_title:
+        st.markdown(f"**{title}**")
+    with col_year:
+        st.markdown(f"<span style='color:#7a7a8c;'>{year}</span>", unsafe_allow_html=True)
+    with col_genre:
+        st.markdown(f"<span style='color:#7a7a8c;font-size:13px;'>{genres}</span>", unsafe_allow_html=True)
+    with col_rating:
+        if rating:
+            st.markdown(f"<span style='color:#e8c547;'>★ {rating:.1f}</span>", unsafe_allow_html=True)
+    with col_watched:
+        if watched:
+            st.markdown("<span style='color:#4caf82;font-size:12px;'>✓ Watched</span>", unsafe_allow_html=True)
+    with col_btn:
+        wl_key = f"wl_{media_type}_{kodi_id}"
+        if in_watchlist:
+            st.markdown("<span style='color:#4caf82;font-size:12px;'>+ Queue</span>", unsafe_allow_html=True)
+        else:
+            if st.button("+ Queue", key=wl_key, use_container_width=True):
+                entry = {
+                    "kodi_id": f"{media_type}_{kodi_id}",
+                    "title": title,
+                    "year": year,
+                    "media_type": media_type,
+                    "poster": None,
+                    "genres": genres,
+                    "plot": (item.get("plot") or "")[:200],
+                    "rating": rating,
+                }
+                ok = add_to_watchlist(entry)
+                if ok:
+                    st.toast(f"Added '{title}' to watchlist")
+                    st.rerun()
 
 
 def show():
@@ -113,7 +53,7 @@ def show():
 
     cfg = st.session_state.get("config", {})
     if not cfg.get("kodi_host"):
-        st.warning("Configure your Kodi connection in Settings first.")
+        st.warning("⚙️ Configure your Kodi connection in **Settings** first.")
         return
 
     st.markdown("# LIBRARY")
@@ -124,17 +64,19 @@ def show():
     wl_keys = {i.get("kodi_id") for i in wl}
 
     with tab_movies:
-        col_search, col_filter, col_refresh = st.columns([3, 2, 1])
+        col_search, col_filter, col_sort, col_refresh = st.columns([3, 2, 2, 1])
         with col_search:
-            search = st.text_input("Search movies", placeholder="Filter by title…", label_visibility="collapsed")
+            search = st.text_input("Search", placeholder="Filter by title…", label_visibility="collapsed")
         with col_filter:
             watched_filter = st.selectbox("Show", ["All", "Unwatched", "Watched"], label_visibility="collapsed")
+        with col_sort:
+            sort_by = st.selectbox("Sort", ["Title A–Z", "Year (newest)", "Rating"], label_visibility="collapsed")
         with col_refresh:
-            if st.button("↻ Refresh", use_container_width=True):
+            if st.button("↻", use_container_width=True, help="Refresh from Kodi"):
                 get_kodi_movies.clear()
                 st.rerun()
 
-        with st.spinner("Loading movies from Kodi..."):
+        with st.spinner("Loading from Kodi..."):
             movies = get_kodi_movies()
 
         if not movies:
@@ -146,30 +88,43 @@ def show():
                 movies = [m for m in movies if m.get("playcount", 0) == 0]
             elif watched_filter == "Watched":
                 movies = [m for m in movies if m.get("playcount", 0) > 0]
+            if sort_by == "Year (newest)":
+                movies = sorted(movies, key=lambda x: x.get("year") or 0, reverse=True)
+            elif sort_by == "Rating":
+                movies = sorted(movies, key=lambda x: x.get("rating") or 0, reverse=True)
 
             st.markdown(
-                f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:12px;'>{len(movies)} titles</div>",
+                f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:8px;'>{len(movies)} titles</div>",
                 unsafe_allow_html=True
             )
 
-            cols = st.columns(5, gap="small")
-            for i, movie in enumerate(movies):
+            # Header row
+            h1, h2, h3, h4, h5, h6 = st.columns([4, 1, 2, 1, 1, 1])
+            h1.markdown("<span style='color:#5a5a6c;font-size:12px;'>TITLE</span>", unsafe_allow_html=True)
+            h2.markdown("<span style='color:#5a5a6c;font-size:12px;'>YEAR</span>", unsafe_allow_html=True)
+            h3.markdown("<span style='color:#5a5a6c;font-size:12px;'>GENRE</span>", unsafe_allow_html=True)
+            h4.markdown("<span style='color:#5a5a6c;font-size:12px;'>RATING</span>", unsafe_allow_html=True)
+            h5.markdown("<span style='color:#5a5a6c;font-size:12px;'>STATUS</span>", unsafe_allow_html=True)
+            st.divider()
+
+            for movie in movies:
                 kodi_id = f"movie_{movie.get('movieid')}"
-                with cols[i % 5]:
-                    media_card(movie, "movie", kodi_id in wl_keys)
+                media_row(movie, "movie", kodi_id in wl_keys)
 
     with tab_tv:
-        col_search2, col_filter2, col_refresh2 = st.columns([3, 2, 1])
+        col_search2, col_filter2, col_sort2, col_refresh2 = st.columns([3, 2, 2, 1])
         with col_search2:
-            search2 = st.text_input("Search TV", placeholder="Filter by title…", label_visibility="collapsed", key="tv_search")
+            search2 = st.text_input("Search", placeholder="Filter by title…", label_visibility="collapsed", key="tv_search")
         with col_filter2:
             watched_filter2 = st.selectbox("Show", ["All", "Unwatched", "Watched"], label_visibility="collapsed", key="tv_filter")
+        with col_sort2:
+            sort_by2 = st.selectbox("Sort", ["Title A–Z", "Year (newest)", "Rating"], label_visibility="collapsed", key="tv_sort")
         with col_refresh2:
-            if st.button("↻ Refresh", use_container_width=True, key="tv_refresh"):
+            if st.button("↻", use_container_width=True, key="tv_refresh", help="Refresh from Kodi"):
                 get_kodi_tvshows.clear()
                 st.rerun()
 
-        with st.spinner("Loading TV shows from Kodi..."):
+        with st.spinner("Loading from Kodi..."):
             shows = get_kodi_tvshows()
 
         if not shows:
@@ -181,22 +136,32 @@ def show():
                 shows = [s for s in shows if s.get("playcount", 0) == 0]
             elif watched_filter2 == "Watched":
                 shows = [s for s in shows if s.get("playcount", 0) > 0]
+            if sort_by2 == "Year (newest)":
+                shows = sorted(shows, key=lambda x: x.get("year") or 0, reverse=True)
+            elif sort_by2 == "Rating":
+                shows = sorted(shows, key=lambda x: x.get("rating") or 0, reverse=True)
 
             st.markdown(
-                f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:12px;'>{len(shows)} shows</div>",
+                f"<div style='color:#7a7a8c;font-size:13px;margin-bottom:8px;'>{len(shows)} titles</div>",
                 unsafe_allow_html=True
             )
 
-            cols = st.columns(5, gap="small")
-            for i, show_item in enumerate(shows):
+            # Header row
+            h1, h2, h3, h4, h5, h6 = st.columns([4, 1, 2, 1, 1, 1])
+            h1.markdown("<span style='color:#5a5a6c;font-size:12px;'>TITLE</span>", unsafe_allow_html=True)
+            h2.markdown("<span style='color:#5a5a6c;font-size:12px;'>YEAR</span>", unsafe_allow_html=True)
+            h3.markdown("<span style='color:#5a5a6c;font-size:12px;'>GENRE</span>", unsafe_allow_html=True)
+            h4.markdown("<span style='color:#5a5a6c;font-size:12px;'>RATING</span>", unsafe_allow_html=True)
+            h5.markdown("<span style='color:#5a5a6c;font-size:12px;'>EPISODES</span>", unsafe_allow_html=True)
+            st.divider()
+
+            for show_item in shows:
                 kodi_id = f"tv_{show_item.get('tvshowid')}"
-                with cols[i % 5]:
-                    eps = show_item.get("episode", 0)
-                    watched_eps = show_item.get("watchedepisodes", 0)
-                    if eps:
-                        show_item = dict(show_item)
-                        show_item["plot"] = (
-                            f"{watched_eps}/{eps} episodes watched\n\n"
-                            + (show_item.get("plot") or "")
-                        )
-                    media_card(show_item, "tv", kodi_id in wl_keys)
+                # Add episode count to genre field by injecting into a copy
+                eps = show_item.get("episode", 0)
+                watched_eps = show_item.get("watchedepisodes", 0)
+                show_copy = dict(show_item)
+                if eps:
+                    # Overwrite playcount display with episode progress
+                    show_copy["_ep_label"] = f"{watched_eps}/{eps} eps"
+                media_row(show_copy, "tv", kodi_id in wl_keys)
