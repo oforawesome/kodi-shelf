@@ -6,5 +6,14 @@
     "poster": "https://image.tmdb.org/t/p/w300/yQvGrMoipbRoddT0ZR8tPoR7NfX.jpg",
     "overview": "The adventures of a group of explorers who make use of a newly discovered wormhole to surpass the limitations on human space travel and conquer the vast distances involved in an interstellar voyage.",
     "found": false
+  },
+  {
+    "title": "The Devil Wears Prada 2",
+    "year": "2026",
+    "media_type": "movie",
+    "poster": "https://image.tmdb.org/t/p/w300/xTI42pmsP5EDnvsNJPEDubwWBQO.jpg",
+    "overview": "Andy Sachs returns to Runway as Miranda Priestly navigates a new media landscape and Runway's position within. The duo reconnect with former assistant Emily Charlton, now the head of a luxury brand that possesses funding which could ensure Runway's survival.",
+    "found": false,
+    "trakt": true
   }
 ]

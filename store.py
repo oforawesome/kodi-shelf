@@ -64,14 +64,18 @@ def _kodi_tag(kodi_id: str, add: bool):
         if not host:
             return
         tag_action = {"method": "add" if add else "remove", "item": {"tag": "want to watch"}}
-        requests.post(
-            f"http://{host}:{port}/jsonrpc",
-            auth=(user, passwd) if user else None,
-            json={"jsonrpc": "2.0", "method": "VideoLibrary.SetMovieDetails",
-                  "params": {"movieid": movie_id, "tag": ["want to watch"] if add else []},
-                  "id": 1},
-            timeout=5
-        )
+        auth = (user, passwd) if user else None
+        url = f"http://{host}:{port}/jsonrpc"
+        # Set the tag
+        requests.post(url, auth=auth, json={
+            "jsonrpc": "2.0", "method": "VideoLibrary.SetMovieDetails",
+            "params": {"movieid": movie_id, "tag": ["want to watch"] if add else []},
+            "id": 1}, timeout=5)
+        # Reload the Amber skin so shelves refresh immediately
+        requests.post(url, auth=auth, json={
+            "jsonrpc": "2.0", "method": "Addons.ExecuteAddon",
+            "params": {"addonid": "skin.amber"},
+            "id": 2}, timeout=5)
     except Exception:
         pass  # tagging failure should not block watchlist
 
@@ -164,6 +168,8 @@ def _load_env_defaults() -> dict:
                 "KODI_USER": "kodi_user",
                 "KODI_PASS": "kodi_pass",
                 "TMDB_KEY":  "tmdb_key",
+                "TRAKT_CLIENT_ID": "trakt_client_id",
+                "TRAKT_USERNAME": "trakt_username",
             }
             cfg_key = mapping.get(key.strip())
             if cfg_key:
