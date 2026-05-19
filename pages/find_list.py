@@ -36,8 +36,11 @@ def show():
                 fl = load_findlist()
                 existing = {i.get("title", "").lower().strip() for i in fl}
 
-                new_items = [i for i in trakt_items
-                             if i.get("movie", {}).get("title", "").lower().strip() not in existing]
+                def trakt_title(i):
+                    m = i.get("movie") or i.get("show") or {}
+                    return m.get("title", "").lower().strip()
+
+                new_items = [i for i in trakt_items if trakt_title(i) not in existing]
                 already = len(trakt_items) - len(new_items)
 
                 st.markdown(f"<div style='color:#7a7a8c;font-size:13px;'>"
@@ -49,22 +52,23 @@ def show():
                     if st.button(f"➕  Import all {len(new_items)} new items", use_container_width=True):
                         imported = 0
                         for item in new_items:
-                            m = item.get("movie", {})
+                            is_show = "show" in item
+                            m = item.get("show") if is_show else item.get("movie", {})
                             title = m.get("title", "")
                             year = str(m.get("year", ""))
-                            tmdb_id = m.get("ids", {}).get("tmdb")
-                            # Try to get poster from TMDB
+                            media_type = "tv" if is_show else "movie"
                             poster = None
                             overview = ""
-                            if tmdb_id and cfg.get("tmdb_key"):
-                                tmdb = tmdb_search_any(title, int(year) if year else None)
+                            if cfg.get("tmdb_key"):
+                                from kodi_client import tmdb_search_tv
+                                tmdb = tmdb_search_tv(title, int(year) if year else None) if is_show else tmdb_search_any(title, int(year) if year else None)
                                 if tmdb:
                                     poster = poster_url(tmdb.get("poster_path"))
                                     overview = tmdb.get("overview", "")[:300]
                             entry = {
                                 "title": title,
                                 "year": year,
-                                "media_type": "movie",
+                                "media_type": media_type,
                                 "poster": poster,
                                 "overview": overview,
                                 "found": False,
@@ -79,25 +83,29 @@ def show():
                     st.markdown("---")
                     st.markdown("**Or pick individually:**")
                     for item in new_items:
-                        m = item.get("movie", {})
+                        is_show = "show" in item
+                        m = item.get("show") if is_show else item.get("movie", {})
                         title = m.get("title", "")
                         year = m.get("year", "")
+                        media_type = "tv" if is_show else "movie"
+                        type_badge = "📺" if is_show else "🎬"
                         c1, c2 = st.columns([5, 1])
                         with c1:
-                            st.markdown(f"**{title}** ({year})")
+                            st.markdown(f"{type_badge} **{title}** ({year})")
                         with c2:
                             if st.button("Add", key=f"trakt_{m.get('ids',{}).get('trakt')}", use_container_width=True):
                                 poster = None
                                 overview = ""
                                 if cfg.get("tmdb_key"):
-                                    tmdb = tmdb_search_any(title, int(year) if year else None)
+                                    from kodi_client import tmdb_search_tv
+                                    tmdb = tmdb_search_tv(title, int(year) if year else None) if is_show else tmdb_search_any(title, int(year) if year else None)
                                     if tmdb:
                                         poster = poster_url(tmdb.get("poster_path"))
                                         overview = tmdb.get("overview", "")[:300]
                                 entry = {
                                     "title": title,
                                     "year": str(year),
-                                    "media_type": "movie",
+                                    "media_type": media_type,
                                     "poster": poster,
                                     "overview": overview,
                                     "found": False,
