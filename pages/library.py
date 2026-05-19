@@ -75,6 +75,17 @@ def show():
 
     st.markdown("# LIBRARY")
 
+    # Kodi library scan button
+    col_title, col_scan = st.columns([6, 1])
+    with col_scan:
+        if st.button("📡 Scan Kodi", use_container_width=True, help="Trigger a Kodi library scan to pick up new media"):
+            from kodi_client import _kodi_request
+            result = _kodi_request("VideoLibrary.Scan", {})
+            if result is not None:
+                st.toast("Kodi library scan started!")
+            else:
+                st.error("Could not reach Kodi")
+
     tab_movies, tab_tv = st.tabs(["🎬  Movies", "📺  TV Shows"])
 
     wl = load_watchlist()
