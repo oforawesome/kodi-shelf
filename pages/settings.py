@@ -22,10 +22,9 @@ def show():
             help="The local IP or ngrok public URL of your Kodi box"
         )
         
-        # Changed to text input so it can accept an empty string for web domains
         kodi_port = st.text_input(
             "Kodi Port (Leave blank if using a full URL)",
-            value=str(cfg.get("kodi_port", "8080")),
+            value=str(cfg.get("kodi_port", "8080")) if cfg.get("kodi_port") else "",
             placeholder="8080",
             help="Default Kodi HTTP port is 8080. Leave blank for ngrok links."
         )
@@ -41,33 +40,34 @@ def show():
             type="password"
         )
 
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("💾  Save Kodi Settings", use_container_width=True):
-                new_cfg = {**cfg,
-                    "kodi_host": kodi_host,
-                    "kodi_port": kodi_port,
-                    "kodi_user": kodi_user,
-                    "kodi_pass": kodi_pass,
-                }
-                save_config(new_cfg)
-                st.success("Saved!")
-        with c2:
-            if st.button("🔌  Test Connection", use_container_width=True):
-                # Temporarily apply to session for ping
-                st.session_state["config"] = {
-                    ...cfg,
-                    "kodi_host": kodi_host,
-                    "kodi_port": kodi_port,
-                    "kodi_user": kodi_user,
-                    "kodi_pass": kodi_pass,
-                }
-                with st.spinner("Pinging Kodi..."):
-                    ok = ping_kodi()
-                if ok:
-                    st.success("✅ Kodi is responding!")
-                else:
-                    st.error("❌ Could not reach Kodi. Check IP, port, and that the web interface is enabled in Kodi settings.")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("💾  Save Kodi Settings", use_container_width=True):
+            new_cfg = {
+                **cfg,
+                "kodi_host": kodi_host.strip(),
+                "kodi_port": kodi_port.strip(),
+                "kodi_user": kodi_user.strip(),
+                "kodi_pass": kodi_pass.strip(),
+            }
+            save_config(new_cfg)
+            st.success("Saved!")
+    with c2:
+        if st.button("🔌  Test Connection", use_container_width=True):
+            # FIXED: Changed ...cfg to **cfg
+            st.session_state["config"] = {
+                **cfg,
+                "kodi_host": kodi_host.strip(),
+                "kodi_port": kodi_port.strip(),
+                "kodi_user": kodi_user.strip(),
+                "kodi_pass": kodi_pass.strip(),
+            }
+            with st.spinner("Pinging Kodi..."):
+                ok = ping_kodi()
+            if ok:
+                st.success("✅ Kodi is responding!")
+            else:
+                st.error("❌ Could not reach Kodi. Check IP, port, and that the web interface is enabled in Kodi settings.")
 
     with col2:
         st.markdown("### TMDB API")
@@ -85,7 +85,7 @@ def show():
         )
 
         if st.button("💾  Save TMDB Key", use_container_width=True):
-            new_cfg = {**cfg, "tmdb_key": tmdb_key}
+            new_cfg = {**cfg, "tmdb_key": tmdb_key.strip()}
             save_config(new_cfg)
             st.success("Saved!")
 

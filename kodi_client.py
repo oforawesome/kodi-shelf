@@ -48,7 +48,9 @@ def _kodi_request(method: str, params: dict) -> Optional[dict]:
             return None
         return data.get("result")
     except requests.exceptions.ConnectionError:
-        st.error(f"❌ Cannot reach Kodi at {host}{':' + port if port and not host.startswith('http') else ''}. Check your Settings.")
+        # FIXED: Look at host construction to show exactly what URL was attempted
+        attempted_url = host if (host.startswith("http://") or host.startswith("https://")) else f"http://{host}{':' + port if port else ''}"
+        st.error(f"❌ Cannot reach Kodi at {attempted_url}. Check your Settings.")
         return None
     except requests.exceptions.Timeout:
         st.error(f"⏱ Kodi timed out at {host}.")
