@@ -16,17 +16,20 @@ def show():
         st.markdown("### Kodi Connection")
 
         kodi_host = st.text_input(
-            "Kodi IP Address",
+            "Kodi IP Address or URL",
             value=cfg.get("kodi_host", "192.168.1.100"),
-            placeholder="192.168.x.x",
-            help="The local IP of your Kodi / piserver box"
+            placeholder="192.168.x.x or https://your-tunnel.ngrok-free.dev",
+            help="The local IP or ngrok public URL of your Kodi box"
         )
-        kodi_port = st.number_input(
-            "Kodi Port",
-            value=int(cfg.get("kodi_port", 8080)),
-            min_value=1, max_value=65535,
-            help="Default Kodi HTTP port is 8080"
+        
+        # Changed to text input so it can accept an empty string for web domains
+        kodi_port = st.text_input(
+            "Kodi Port (Leave blank if using a full URL)",
+            value=str(cfg.get("kodi_port", "8080")),
+            placeholder="8080",
+            help="Default Kodi HTTP port is 8080. Leave blank for ngrok links."
         )
+        
         kodi_user = st.text_input(
             "Username (optional)",
             value=cfg.get("kodi_user", ""),
@@ -53,7 +56,7 @@ def show():
             if st.button("🔌  Test Connection", use_container_width=True):
                 # Temporarily apply to session for ping
                 st.session_state["config"] = {
-                    **cfg,
+                    ...cfg,
                     "kodi_host": kodi_host,
                     "kodi_port": kodi_port,
                     "kodi_user": kodi_user,

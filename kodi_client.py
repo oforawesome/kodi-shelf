@@ -12,17 +12,35 @@ from typing import Optional, Union
 
 def _kodi_request(method: str, params: dict) -> Optional[dict]:
     cfg = st.session_state.get("config", {})
-    host = cfg.get("kodi_host", "192.168.1.100")
-    port = cfg.get("kodi_port", 8080)
+    host = str(cfg.get("kodi_host", "192.168.1.100")).strip()
+    port = str(cfg.get("kodi_port", "8080")).strip()
     user = cfg.get("kodi_user", "")
     passwd = cfg.get("kodi_pass", "")
 
-    url = f"http://{host}:{port}/jsonrpc"
+    # 1. Build the target URL dynamically based on input type
+    if host.startswith("http://") or host.startswith("https://"):
+        # If it's a full public web domain (like ngrok), use it directly
+        base_url = host.rstrip("/")
+    else:
+        # If it's a raw local IP, combine it with the port using http
+        if port:
+            base_url = f"http://{host}:{port}"
+        else:
+            base_url = f"http://{host}"
+
+    url = f"{base_url}/jsonrpc"
     payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
+
+    # 2. Add custom headers to skip ngrok browser interstitial alerts
+    headers = {
+        "Content-Type": "application/json",
+        "Ngrok-Skip-Browser-Warning": "true",
+        "User-Agent": "Kodi-Shelf-App"
+    }
 
     try:
         auth = (user, passwd) if user else None
-        resp = requests.post(url, json=payload, auth=auth, timeout=6)
+        resp = requests.post(url, json=payload, headers=headers, auth=auth, timeout=6)
         resp.raise_for_status()
         data = resp.json()
         if "error" in data:
@@ -30,10 +48,10 @@ def _kodi_request(method: str, params: dict) -> Optional[dict]:
             return None
         return data.get("result")
     except requests.exceptions.ConnectionError:
-        st.error(f"❌ Cannot reach Kodi at {host}:{port}. Check your Settings.")
+        st.error(f"❌ Cannot reach Kodi at {host}{':' + port if port and not host.startswith('http') else ''}. Check your Settings.")
         return None
     except requests.exceptions.Timeout:
-        st.error(f"⏱ Kodi timed out at {host}:{port}.")
+        st.error(f"⏱ Kodi timed out at {host}.")
         return None
     except Exception as e:
         st.error(f"Kodi request failed: {e}")

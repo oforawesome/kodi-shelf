@@ -1,4 +1,5 @@
 import streamlit as st
+from pages import library, watchlist, find_list, settings
 
 st.set_page_config(
     page_title="Kodi Watchlist",
@@ -53,7 +54,7 @@ h1, h2, h3 {
     border-radius: 6px !important;
     font-family: 'DM Sans', sans-serif !important;
     font-weight: 500 !important;
-    transition: all 0.15s ease !important;
+    transition: all 0.1s ease !important;
 }
 
 .stButton > button:hover {
@@ -99,7 +100,6 @@ h1, h2, h3 {
     border-color: var(--border) !important;
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -123,14 +123,10 @@ with st.sidebar:
 
 # Route to page
 if page == "📚  Library":
-    from pages import library
     library.show()
 elif page == "⏱  Watchlist":
-    from pages import watchlist
     watchlist.show()
 elif page == "🔍  Find List":
-    from pages import find_list
     find_list.show()
 elif page == "⚙️  Settings":
-    from pages import settings
     settings.show()
